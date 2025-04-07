@@ -1,0 +1,105 @@
+[ +347 ms] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterWebSdk' is not required, skipping update.
+[        ] Artifact Instance of 'LegacyCanvasKitRemover' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[  +45 ms] executing: C:\Users\vaibh\AppData\Local\Android\Sdk\platform-tools\adb.exe devices -l
+[  +57 ms] List of devices attached
+           adb-OZUSF6CEZLMVMNE6-5N7C72._adb-tls-connect._tcp device product:CPH2119 model:CPH2119 device:OP4C51L1 transport_id:2
+           emulator-5554          device product:sdk_gphone16k_x86_64 model:sdk_gphone16k_x86_64 device:emu64xa16k transport_id:77
+[  +10 ms] C:\Users\vaibh\AppData\Local\Android\Sdk\platform-tools\adb.exe -s adb-OZUSF6CEZLMVMNE6-5N7C72._adb-tls-connect._tcp shell getprop
+[ +127 ms] C:\Users\vaibh\AppData\Local\Android\Sdk\platform-tools\adb.exe -s emulator-5554 shell getprop
+[ +228 ms] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[   +9 ms] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[  +52 ms] Connected devices:
+[        ] ro.hardware = ranchu
+[  +47 ms] sdk gphone16k x86 64 (mobile) • emulator-5554 • android-x64    • Android 15 (API 35) (emulator)
+[        ] Windows (desktop)             • windows       • windows-x64    • Microsoft Windows [Version 10.0.26100.3194]
+[        ] Chrome (web)                  • chrome        • web-javascript • Google Chrome 133.0.6943.142
+[        ] Edge (web)                    • edge          • web-javascript • Microsoft Edge 133.0.3065.92
+[        ] Wirelessly connected devices:
+[        ] ro.hardware = mt6779
+[        ] ro.build.characteristics = default
+[        ] CPH2119 (mobile) • adb-OZUSF6CEZLMVMNE6-5N7C72._adb-tls-connect._tcp • android-arm64 • Android 12 (API 31)
+[        ] [1]: sdk gphone16k x86 64 (emulator-5554)
+[        ] [2]: Windows (windows)
+[        ] [3]: Chrome (chrome)
+[        ] [4]: Edge (edge)
+[        ] [5]: CPH2119 (adb-OZUSF6CEZLMVMNE6-5N7C72._adb-tls-connect._tcp)
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[+2865752 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[ +444 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +29 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +30 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +30 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +31 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +30 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +31 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +29 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +31 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +30 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +29 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +32 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +29 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +30 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[  +30 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[ +122 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[ +191 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[ +162 ms] 
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[+1294 ms] ensureAnalyticsSent: 221ms
+[        ] Running 1 shutdown hook
+[        ] Shutdown hooks complete
+[   +3 ms] exiting with code 0
+Terminate batch job (Y/N)? Terminate batch job (Y/N)? Terminate batch job (Y/N)? 
