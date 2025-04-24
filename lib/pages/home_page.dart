@@ -8,30 +8,24 @@ import 'package:permission_handler/permission_handler.dart';
 import '../auth/auth_gate.dart';
 import '../auth_state.dart';
 import '../services/chat_services.dart';
+import '../services/map_state.dart';
+import '../services/search_state.dart';
+import '../services/profile_state.dart';
 import 'conversation_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import '../widgets/bottom_navigator.dart';
+import 'map_page.dart';
+
 
 class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> {
   bool _isLoggingOut = false;
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+  int _currentIndex = 0; // Default to Chats tab
 
   Future<void> _logout(BuildContext context) async {
     if (_isLoggingOut) return;
@@ -88,12 +82,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           textAlign: TextAlign.center,
         ),
         content: Column(
-          mainAxisSize: MainAxisSize.min, // Prevents vertical expansion
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 200,
               height: 200,
-              child: Center( // Centers the QR code horizontally within the Container
+              child: Center(
                 child: QrImageView(
                   data: uid,
                   version: QrVersions.auto,
@@ -195,115 +189,191 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
+  void _onNavBarTap(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = Provider.of<AuthState>(context);
-    final chatState = Provider.of<ChatState>(context);
 
     if (authState.uid == null) {
       return Center(child: CircularProgressIndicator());
     }
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        toolbarHeight: MediaQuery.of(context).size.height * 0.077,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color(0xFF62C3F4),
-                Color(0xFF0469C4),
-              ],
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ChatState()),
+        ChangeNotifierProvider(create: (_) => MapState()),
+        ChangeNotifierProvider(create: (_) => SearchState()),
+        ChangeNotifierProvider(create: (_) => ProfileState()),
+      ],
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          toolbarHeight: MediaQuery.of(context).size.height * 0.077,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0xFF62C3F4),
+                  Color(0xFF0469C4),
+                ],
+              ),
             ),
           ),
-        ),
-        title: Container(
-          height: MediaQuery.of(context).size.height * 0.070,
-          width: MediaQuery.of(context).size.width * 0.30,
-          padding: const EdgeInsets.all(5),
-          child: SvgPicture.asset(
-            'assets/Logo.svg',
-            height: 36,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.qr_code, color: Colors.black87),
-            onPressed: () => _showQRCode(context, authState.uid!),
-          ),
-          IconButton(
-            icon: Icon(Icons.search, color: Colors.black87),
-            onPressed: () {
-              print('Search icon pressed');
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.logout, color: Colors.black87),
-            onPressed: _isLoggingOut ? null : () => _logout(context),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48.0),
-          child: Container(
-            color: Colors.black,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white30,
-              indicator: BoxDecoration(color: Colors.black54),
-              indicatorSize: TabBarIndicatorSize.tab,
-              dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: 'Users'),
-                Tab(text: 'Hosts'),
-              ],
+          title: Container(
+            height: MediaQuery.of(context).size.height * 0.070,
+            width: MediaQuery.of(context).size.width * 0.30,
+            padding: const EdgeInsets.all(5),
+            child: SvgPicture.asset(
+              'assets/Logo.svg',
+              height: 36,
             ),
           ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.qr_code, color: Colors.black87),
+              onPressed: () => _showQRCode(context, authState.uid!),
+            ),
+            IconButton(
+              icon: Icon(Icons.search, color: Colors.black87),
+              onPressed: () {
+                print('Search icon pressed');
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.logout, color: Colors.black87),
+              onPressed: _isLoggingOut ? null : () => _logout(context),
+            ),
+          ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          Stack(
-            children: [
-              _buildChatsTab(authState, chatState),
+        body: Stack(
+          children: [
+            _buildTabContent(),
+            if (_currentIndex == 0) // Show FAB only on Chats tab
               Positioned(
                 bottom: 20,
                 right: 20,
                 child: Container(
-                  width: 60, // Set width to 50
-                  height: 60, // Set height to 50
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        Color(0xFF62C3F4), // Same as AppBar gradient
+                        Color(0xFF62C3F4),
                         Color(0xFF0469C4),
                       ],
                     ),
                   ),
                   child: FloatingActionButton(
                     onPressed: () => _scanQRCode(context),
-                    backgroundColor: Colors.transparent, // Transparent to show gradient
-                    elevation: 0, // Remove default shadow to use gradient
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
                     child: Icon(Icons.qr_code_scanner, color: Colors.white),
                   ),
                 ),
               ),
-            ],
-          ),
-          _buildHostsTab(authState, chatState),
-        ],
+          ],
+        ),
+        bottomNavigationBar: BottomNavigationBarWidget(
+          currentIndex: _currentIndex,
+          onTap: _onNavBarTap,
+        ),
       ),
     );
   }
 
-  Widget _buildChatsTab(AuthState authState, ChatState chatState) {
+  Widget _buildTabContent() {
+    switch (_currentIndex) {
+      case 0:
+        return Consumer<ChatState>(
+          builder: (context, chatState, _) {
+            return _buildChatsList(Provider.of<AuthState>(context), chatState);
+          },
+        );
+      case 1:
+        return const MapPage();
+      case 2:
+        return Consumer<SearchState>(
+          builder: (context, searchState, _) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Search Page',
+                    style: TextStyle(color: Colors.white, fontSize: 24),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Query: ${searchState.query}',
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                    child: TextField(
+                      onChanged: (value) => searchState.setQuery(value),
+                      style: TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Enter search query',
+                        hintStyle: TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.grey[800],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      case 3:
+        return Consumer<ProfileState>(
+          builder: (context, profileState, _) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Profile Page',
+                    style: TextStyle(color: Colors.white, fontSize: 24),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    profileState.isProfileLoaded ? 'Profile Loaded' : 'Profile Not Loaded',
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => profileState.loadProfile(),
+                    child: Text('Load Profile'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      default:
+        return Consumer<ChatState>(
+          builder: (context, chatState, _) {
+            return _buildChatsList(Provider.of<AuthState>(context), chatState);
+          },
+        );
+    }
+  }
+
+  Widget _buildChatsList(AuthState authState, ChatState chatState) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -321,8 +391,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               if (snapshot.hasError) {
                 print('Chats stream error: ${snapshot.error}');
                 return Center(
-                    child: Text("Error: ${snapshot.error}",
-                        style: TextStyle(color: Colors.white)));
+                  child: Text(
+                    "Error: ${snapshot.error}",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                );
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
                 print('Loading chats...');
@@ -333,8 +406,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               if (users.isEmpty) {
                 print('No users found for Chats');
                 return Center(
-                    child: Text('No users available',
-                        style: TextStyle(color: Colors.white)));
+                  child: Text(
+                    'No users available',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                );
               }
               final filteredUsers = users.where((user) => user['email'] != authState.email).toList();
               return ListView.builder(
@@ -376,93 +452,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       child: Center(
                         child: Text(
                           'No More Chats',
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ),
-                    );
-                  }
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHostsTab(AuthState authState, ChatState chatState) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 16.0, top: 8.0, bottom: 8.0),
-          child: Text(
-            'Hosts',
-            style: TextStyle(color: Colors.white, fontSize: 12),
-          ),
-        ),
-        Expanded(
-          child: StreamBuilder<List<Map<String, dynamic>>>(
-            stream: chatState.getUsersStream(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                print('Hosts stream error: ${snapshot.error}');
-                return Center(
-                    child: Text("Error: ${snapshot.error}",
-                        style: TextStyle(color: Colors.white)));
-              }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                print('Loading hosts...');
-                return Center(child: CircularProgressIndicator());
-              }
-              final users = snapshot.data!;
-              print('Loaded ${users.length} users for Hosts');
-              final hostUsers = <Map<String, dynamic>>[];
-              if (hostUsers.isEmpty) {
-                print('No hosts found');
-                return Center(
-                    child: Text('No hosts available yet',
-                        style: TextStyle(color: Colors.white, fontSize: 14)));
-              }
-              return ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: hostUsers.length + (hostUsers.isNotEmpty ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index < hostUsers.length) {
-                    final user = hostUsers[index];
-                    print('Showing host: ${user['email']}');
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          radius: 22,
-                          backgroundImage: AssetImage(user['avatarUrl'] ?? 'assets/avatar_1.png'),
-                        ),
-                        title: Text(
-                          user['username'] ?? user['email'].split('@')[0],
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                        onTap: () {
-                          print('Tapped host: ${user['email']}');
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ConversationPage(
-                                receiverId: user['uid'],
-                                receiverUsername: user['username'] ?? user['email'].split('@')[0],
-                                receiverAvatarUrl: user['avatarUrl'] ?? 'assets/avatar_1.png',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  } else {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      child: Center(
-                        child: Text(
-                          'No More Hosts',
                           style: TextStyle(color: Colors.white, fontSize: 12),
                         ),
                       ),

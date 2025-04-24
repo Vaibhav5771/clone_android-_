@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -9,9 +8,7 @@ import '../selection/file_picker.dart';
 import '../selection/file_preview.dart';
 import '../services/chat_services.dart';
 import 'package:intl/intl.dart';
-
-import '../services/file_state.dart'; // For formatting timestamps// Import your file preview module
-// Note: preference_form is not directly imported here as it’s assumed to be used within file_preview
+import '../services/file_state.dart';
 
 class ConversationPage extends StatefulWidget {
   final String receiverId;
@@ -37,6 +34,7 @@ class _ConversationPageState extends State<ConversationPage> {
   @override
   void initState() {
     super.initState();
+    _textFieldFocus = FocusNode();
     print('Receiver Avatar URL: ${widget.receiverAvatarUrl}');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
@@ -47,7 +45,7 @@ class _ConversationPageState extends State<ConversationPage> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _textFieldFocus.dispose(); // Dispose of the FocusNode
+    _textFieldFocus.dispose();
     super.dispose();
   }
 
@@ -71,13 +69,12 @@ class _ConversationPageState extends State<ConversationPage> {
     }
   }
 
-  // New method to handle file picking and preview navigation
   Future<void> _pickAndPreviewFile(String type) async {
     try {
       print("Calling pickFile for type: $type");
-      File? file = await pickFile(type, context); // Context is passed here
-      print("pickFile returned file: $file");
-      if (file != null) {
+      File? file = await pickFile(type, context);
+      print("Selected file path: ${file?.path}");
+      if (file != null && file.existsSync()) {
         final provider = Provider.of<FileAttachmentProvider>(context, listen: false);
         provider.setFile(file, type);
         print("Navigating to FilePreviewScreen with file: ${file.path}");
@@ -88,23 +85,21 @@ class _ConversationPageState extends State<ConversationPage> {
               file: file,
               fileType: type,
               receiverId: widget.receiverId,
+              receiverUsername: widget.receiverUsername, // Pass username
+              receiverAvatarUrl: widget.receiverAvatarUrl, // Pass avatar URL
             ),
           ),
         );
-        setState(() {});
       } else {
-        print("No file returned from pickFile");
-        // SnackBar is handled in pickFile, so no need to duplicate here
+        print("No file picked or file doesn’t exist");
       }
     } catch (e) {
-      print("Exception in _pickAndPreviewFile: $e");
+      print("Error in _pickAndPreviewFile: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to pick $type: $e")),
       );
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +174,6 @@ class _ConversationPageState extends State<ConversationPage> {
     }
   }
 
-  // Updated to handle both text and file messages
   Widget _buildMessageList(String senderId, ChatState chatState) {
     return StreamBuilder<QuerySnapshot>(
       stream: chatState.getMessages(senderId, widget.receiverId),
@@ -216,7 +210,6 @@ class _ConversationPageState extends State<ConversationPage> {
             final data = doc.data() as Map<String, dynamic>;
             final isCurrentUser = data['senderID'] == senderId;
             final timestamp = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
-            // Check if it’s a file message
             if (data.containsKey('fileUrl')) {
               return _buildFileMessageItem(data, isCurrentUser, timestamp);
             } else {
@@ -228,7 +221,6 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  // Renamed to _buildTextMessageItem for clarity
   Widget _buildTextMessageItem(String message, bool isCurrentUser, DateTime timestamp) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -286,13 +278,21 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  // New method to display file messages
   Widget _buildFileMessageItem(Map<String, dynamic> data, bool isCurrentUser, DateTime timestamp) {
     final fileUrl = data['fileUrl'] as String;
     final type = data['type'] as String;
     final preferences = data['preferences'] as Map<String, dynamic>? ?? {};
-    final caption =
-        'Copies: ${preferences['copies'] ?? '1'}, Color: ${preferences['colorScheme'] ?? 'N/A'}, Orientation: ${preferences['orientation'] ?? 'N/A'}';
+    final fileName = data['fileName'] as String? ?? 'PDF File'; // Fallback to 'PDF File' if not provided
+
+    // Construct caption with all preferences from PreferencesFormScreen
+    final caption = [
+      'Copies: ${preferences['copies'] ?? '1'}',
+      'Color: ${preferences['isColor'] == true ? 'Color' : 'B & W'}',
+      'Paper: ${preferences['paperSize'] ?? 'A4'}',
+      'Sides: ${preferences['sides'] ?? 'Front'}',
+      if (type == 'pdf' && preferences['startPage'] != null && preferences['endPage'] != null)
+        'Pages: ${preferences['startPage']}-${preferences['endPage']}',
+    ].join(', ');
 
     if (type == 'pdf') {
       return Padding(
@@ -317,6 +317,9 @@ class _ConversationPageState extends State<ConversationPage> {
                 isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.7,
+                    ),
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: isCurrentUser ? Colors.blue : Colors.grey[800],
@@ -332,10 +335,35 @@ class _ConversationPageState extends State<ConversationPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('PDF File', style: TextStyle(color: Colors.white)),
-                        const SizedBox(height: 5),
-                        Text(caption,
-                            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.picture_as_pdf,
+                              color: Colors.white70,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                fileName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          caption,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -394,12 +422,48 @@ class _ConversationPageState extends State<ConversationPage> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.network(fileUrl),
+                          child: Image.network(
+                            fileUrl,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) {
+                                return child;
+                              }
+                              return Container(
+                                height: 150, // Fixed height for placeholder
+                                width: double.infinity,
+                                color: Colors.grey[900],
+                                child: Center(
+                                  child: Icon(
+                                    Icons.image,
+                                    color: Colors.white70,
+                                    size: 50,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 150,
+                                width: double.infinity,
+                                color: Colors.grey[900],
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    color: Colors.white70,
+                                    size: 50,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(8.0),
-                          child: Text(caption,
-                              style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                          child: Text(
+                            caption,
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
                         ),
                       ],
                     ),
@@ -420,8 +484,6 @@ class _ConversationPageState extends State<ConversationPage> {
   }
 
   Widget _buildUserInput(ChatState chatState, String senderId) {
-    final FocusNode _textFieldFocus = FocusNode(); // Add a FocusNode for the TextField
-
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Row(
@@ -429,13 +491,13 @@ class _ConversationPageState extends State<ConversationPage> {
           IconButton(
             icon: const Icon(Icons.attach_file, color: Colors.white54),
             onPressed: () {
-              _textFieldFocus.unfocus(); // Explicitly unfocus before showing dialog
+              _textFieldFocus.unfocus();
               _showAttachmentDialog(context);
             },
           ),
           Expanded(
             child: TextField(
-              focusNode: _textFieldFocus, // Attach the FocusNode
+              focusNode: _textFieldFocus,
               controller: _messageController,
               style: const TextStyle(color: Colors.white),
               cursorColor: Colors.white,
@@ -451,7 +513,6 @@ class _ConversationPageState extends State<ConversationPage> {
                 contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
               ),
               onTap: () {
-                // Ensure focus is retained
                 FocusScope.of(context).requestFocus(_textFieldFocus);
               },
             ),
@@ -472,7 +533,6 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  // Updated attachment dialog to use _pickAndPreviewFile
   void _showAttachmentDialog(BuildContext context) {
     showGeneralDialog(
       context: context,
@@ -483,7 +543,7 @@ class _ConversationPageState extends State<ConversationPage> {
       pageBuilder: (context, animation, secondaryAnimation) {
         return WillPopScope(
           onWillPop: () async {
-            FocusScope.of(context).unfocus(); // Ensure keyboard is dismissed on back
+            FocusScope.of(context).unfocus();
             return true;
           },
           child: Center(
