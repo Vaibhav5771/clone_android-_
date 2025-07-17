@@ -1,22 +1,19 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:clone_android/pages/profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../auth/auth_gate.dart';
 import '../auth_state.dart';
 import '../services/chat_services.dart';
 import '../services/map_state.dart';
-import '../services/search_state.dart';
 import '../services/profile_state.dart';
+import '../services/qr_code_manager.dart';
 import 'conversation_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import '../widgets/bottom_navigator.dart';
 import 'map_page.dart';
-
 
 class HomePage extends StatefulWidget {
   @override
@@ -25,55 +22,21 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isLoggingOut = false;
-  int _currentIndex = 0; // Default to Chats tab
+  int _currentIndex = 0;
 
   Future<void> _logout(BuildContext context) async {
     if (_isLoggingOut) return;
     setState(() => _isLoggingOut = true);
-    final authState = Provider.of<AuthState>(context, listen: false);
-    final dialogContext = context;
 
-    showDialog(
-      context: dialogContext,
-      barrierDismissible: false,
-      builder: (context) => Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      await FirebaseAuth.instance.signOut();
-      authState.clearUser();
-      if (Navigator.canPop(dialogContext)) {
-        Navigator.pop(dialogContext);
-      }
-      if (mounted) {
-        await Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => AuthGate()),
-        );
-      }
-    } catch (e) {
-      if (Navigator.canPop(dialogContext)) {
-        Navigator.pop(dialogContext);
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Logout failed: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoggingOut = false);
-    }
-  }
-
-  void _showQRCode(BuildContext context, String uid) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         elevation: 10,
         backgroundColor: Colors.white,
         title: Text(
-          'Your QR Code',
+          'Confirm Logout',
           style: TextStyle(
             color: Colors.black,
             fontSize: 20,
@@ -81,26 +44,20 @@ class _HomePageState extends State<HomePage> {
           ),
           textAlign: TextAlign.center,
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 200,
-              height: 200,
-              child: Center(
-                child: QrImageView(
-                  data: uid,
-                  version: QrVersions.auto,
-                  size: 200.0,
-                  backgroundColor: Colors.white,
-                ),
-              ),
-            ),
-          ],
+        content: Text(
+          'Do you really want to log out?',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+          ),
+          textAlign: TextAlign.center,
         ),
         actions: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () {
+              Navigator.pop(dialogContext);
+              setState(() => _isLoggingOut = false);
+            },
             child: Container(
               width: 100,
               height: 40,
@@ -110,7 +67,58 @@ class _HomePageState extends State<HomePage> {
               ),
               child: Center(
                 child: Text(
-                  'Close',
+                  'Cancel',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () async {
+              try {
+                final authState = Provider.of<AuthState>(context, listen: false);
+                await FirebaseAuth.instance.signOut();
+                authState.clearUser();
+                if (Navigator.canPop(dialogContext)) {
+                  Navigator.pop(dialogContext);
+                }
+                if (mounted) {
+                  await Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => AuthGate()),
+                  );
+                }
+              } catch (e) {
+                debugPrint('Error signing out: $e');
+                if (Navigator.canPop(dialogContext)) {
+                  Navigator.pop(dialogContext);
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error signing out: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } finally {
+                if (mounted) setState(() => _isLoggingOut = false);
+              }
+            },
+            child: Container(
+              width: 100,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  'Logout',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -124,69 +132,6 @@ class _HomePageState extends State<HomePage> {
         actionsAlignment: MainAxisAlignment.center,
       ),
     );
-  }
-
-  Future<void> _scanQRCode(BuildContext context) async {
-    debugPrint('Starting QR scan...');
-    final authState = Provider.of<AuthState>(context, listen: false);
-    debugPrint('Auth UID: ${authState.uid}');
-
-    if (await Permission.camera.request().isGranted) {
-      String? scannedUid = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => _ScannerPage(),
-        ),
-      );
-
-      debugPrint('Scan result: $scannedUid');
-      if (scannedUid != null && scannedUid != authState.uid) {
-        try {
-          debugPrint('Fetching user data for UID: $scannedUid');
-          final userDoc = await FirebaseFirestore.instance
-              .collection('Users')
-              .doc(scannedUid)
-              .get();
-          if (userDoc.exists) {
-            final userData = userDoc.data()!;
-            final receiverUsername = userData['username'] as String? ?? userData['email'].split('@')[0];
-            final receiverAvatarUrl = userData['avatarUrl'] as String? ?? 'https://example.com/default-avatar.jpg';
-            debugPrint('Navigating to chat with: $receiverUsername');
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ConversationPage(
-                  receiverId: scannedUid,
-                  receiverUsername: receiverUsername,
-                  receiverAvatarUrl: receiverAvatarUrl,
-                ),
-              ),
-            );
-            debugPrint('Navigation to ConversationPage complete');
-          } else {
-            debugPrint('User not found for UID: $scannedUid');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('User not found')),
-            );
-          }
-        } catch (e) {
-          debugPrint('Error fetching user: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      } else if (scannedUid == authState.uid) {
-        debugPrint('Cannot chat with self');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cannot chat with yourself')),
-        );
-      }
-    } else {
-      debugPrint('Camera permission denied');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Camera permission denied')),
-      );
-    }
   }
 
   void _onNavBarTap(int index) {
@@ -207,7 +152,6 @@ class _HomePageState extends State<HomePage> {
       providers: [
         ChangeNotifierProvider(create: (_) => ChatState()),
         ChangeNotifierProvider(create: (_) => MapState()),
-        ChangeNotifierProvider(create: (_) => SearchState()),
         ChangeNotifierProvider(create: (_) => ProfileState()),
       ],
       child: Scaffold(
@@ -238,13 +182,7 @@ class _HomePageState extends State<HomePage> {
           actions: [
             IconButton(
               icon: Icon(Icons.qr_code, color: Colors.black87),
-              onPressed: () => _showQRCode(context, authState.uid!),
-            ),
-            IconButton(
-              icon: Icon(Icons.search, color: Colors.black87),
-              onPressed: () {
-                print('Search icon pressed');
-              },
+              onPressed: () => QRCodeManager.showQRCode(context, authState.uid!),
             ),
             IconButton(
               icon: Icon(Icons.logout, color: Colors.black87),
@@ -255,7 +193,7 @@ class _HomePageState extends State<HomePage> {
         body: Stack(
           children: [
             _buildTabContent(),
-            if (_currentIndex == 0) // Show FAB only on Chats tab
+            if (_currentIndex == 0)
               Positioned(
                 bottom: 20,
                 right: 20,
@@ -274,7 +212,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   child: FloatingActionButton(
-                    onPressed: () => _scanQRCode(context),
+                    onPressed: () => QRCodeManager.scanQRCode(context),
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     child: Icon(Icons.qr_code_scanner, color: Colors.white),
@@ -302,68 +240,7 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return const MapPage();
       case 2:
-        return Consumer<SearchState>(
-          builder: (context, searchState, _) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Search Page',
-                    style: TextStyle(color: Colors.white, fontSize: 24),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Query: ${searchState.query}',
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                    child: TextField(
-                      onChanged: (value) => searchState.setQuery(value),
-                      style: TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Enter search query',
-                        hintStyle: TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: Colors.grey[800],
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      case 3:
-        return Consumer<ProfileState>(
-          builder: (context, profileState, _) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Profile Page',
-                    style: TextStyle(color: Colors.white, fontSize: 24),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    profileState.isProfileLoaded ? 'Profile Loaded' : 'Profile Not Loaded',
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => profileState.loadProfile(),
-                    child: Text('Load Profile'),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
+        return const ProfilePage();
       default:
         return Consumer<ChatState>(
           builder: (context, chatState, _) {
@@ -401,7 +278,7 @@ class _HomePageState extends State<HomePage> {
                 print('Loading chats...');
                 return Center(child: CircularProgressIndicator());
               }
-              final users = snapshot.data!;
+              final users = snapshot.data ?? [];
               print('Loaded ${users.length} users for Chats');
               if (users.isEmpty) {
                 print('No users found for Chats');
@@ -425,10 +302,30 @@ class _HomePageState extends State<HomePage> {
                       child: ListTile(
                         leading: CircleAvatar(
                           radius: 22,
-                          backgroundImage: AssetImage(user['avatarUrl'] ?? 'assets/avatar_1.png'),
+                          backgroundColor: Colors.grey[800],
+                          child: ClipOval(
+                            child: user['avatarUrl'] != null && user['avatarUrl'].startsWith('http')
+                                ? CachedNetworkImage(
+                              imageUrl: user['avatarUrl'],
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => CircularProgressIndicator(strokeWidth: 2),
+                              errorWidget: (context, url, error) {
+                                print('Failed to load avatar for ${user['email']}: $error');
+                                return Image.asset('assets/avatar_1.png', fit: BoxFit.cover);
+                              },
+                            )
+                                : Image.asset(
+                              user['avatarUrl'] ?? 'assets/avatar_1.png',
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
                         ),
                         title: Text(
-                          user['username'] ?? user['email'].split('@')[0],
+                          user['username'] ?? user['email']?.split('@')[0] ?? 'Anonymous',
                           style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                         onTap: () {
@@ -438,7 +335,7 @@ class _HomePageState extends State<HomePage> {
                             MaterialPageRoute(
                               builder: (context) => ConversationPage(
                                 receiverId: user['uid'],
-                                receiverUsername: user['username'] ?? user['email'].split('@')[0],
+                                receiverUsername: user['username'] ?? user['email']?.split('@')[0] ?? 'Anonymous',
                                 receiverAvatarUrl: user['avatarUrl'] ?? 'assets/avatar_1.png',
                               ),
                             ),
@@ -463,54 +360,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ScannerPage extends StatefulWidget {
-  @override
-  __ScannerPageState createState() => __ScannerPageState();
-}
-
-class __ScannerPageState extends State<_ScannerPage> {
-  QRViewController? _controller;
-  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  void _onQRViewCreated(QRViewController controller) {
-    _controller = controller;
-    controller.scannedDataStream.listen((Barcode barcode) {
-      final String? uid = barcode.code;
-      debugPrint('Scanned UID: $uid');
-      if (uid != null) {
-        Navigator.pop(context, uid);
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Scan QR Code', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.black,
-      ),
-      body: QRView(
-        key: qrKey,
-        onQRViewCreated: _onQRViewCreated,
-        overlay: QrScannerOverlayShape(
-          borderColor: Colors.red,
-          borderRadius: 10,
-          borderLength: 30,
-          borderWidth: 10,
-          cutOutSize: 300,
-        ),
-      ),
     );
   }
 }

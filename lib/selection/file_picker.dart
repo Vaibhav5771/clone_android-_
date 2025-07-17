@@ -9,28 +9,56 @@ Future<File?> pickFile(String type, BuildContext context) async {
   print("Starting pickFile for type: $type");
   try {
     if (type == 'image') {
-      print("Checking photos permission");
-      PermissionStatus status = await Permission.photos.status;
-      print("Current photos permission status: $status");
-      if (!status.isGranted) {
-        print("Requesting photos permission");
-        status = await Permission.photos.request();
-        print("Requested photos permission, new status: $status");
+      // Determine the appropriate permission based on Android version
+      final isAndroid13OrHigher = await _isAndroid13OrHigher();
+      Permission permission = isAndroid13OrHigher ? Permission.photos : Permission.storage;
+
+      print("Checking permission: ${permission.toString()}");
+      PermissionStatus status = await permission.status;
+      print("Current permission status: $status");
+
+      if (status.isGranted) {
+        print("Permission already granted");
+      } else if (status.isPermanentlyDenied) {
+        print("Permission permanently denied, directing to settings");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text("Photo access is permanently denied. Please enable it in settings."),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: () async {
+                print("Opening app settings");
+                await openAppSettings();
+              },
+            ),
+          ),
+        );
+        return null;
+      } else {
+        print("Requesting permission: ${permission.toString()}");
+        status = await permission.request();
+        print("Requested permission, new status: $status");
+
         if (!status.isGranted) {
-          if (status.isPermanentlyDenied) {
-            print("Photos permission permanently denied");
-            await openAppSettings();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please enable photos permission in settings.")),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Photos permission denied.")),
-            );
-          }
+          print("Permission request denied: $status");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text("Photo access denied. Please grant permission to select images."),
+              action: status.isPermanentlyDenied
+                  ? SnackBarAction(
+                label: 'Settings',
+                onPressed: () async {
+                  print("Opening app settings due to permanent denial");
+                  await openAppSettings();
+                },
+              )
+                  : null,
+            ),
+          );
           return null;
         }
       }
+
       print("Launching image picker");
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -64,19 +92,28 @@ Future<File?> pickFile(String type, BuildContext context) async {
       }
     }
     print("Unsupported type: $type");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Unsupported file type: $type")),
+    );
     return null;
-  } catch (e) {
+  } catch (e, stackTrace) {
     print("Error in pickFile ($type): $e");
+    print("Stack trace: $stackTrace");
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error picking $type: $e")),
     );
     return null;
   }
 }
-// Helper function
-Future<bool> _isAndroid11OrHigher() async {
-  if (!Platform.isAndroid) return false;
+
+// Helper function to check Android version
+Future<bool> _isAndroid13OrHigher() async {
+  if (!Platform.isAndroid) {
+    print("Not an Android device");
+    return false;
+  }
   final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
   final AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-  return androidInfo.version.sdkInt >= 30; // API 30 is Android 11
+  print("Android SDK version: ${androidInfo.version.sdkInt}");
+  return androidInfo.version.sdkInt >= 33; // API 33 is Android 13
 }

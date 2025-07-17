@@ -38,13 +38,42 @@ class _LoginScreenState extends State<LoginScreen> {
         userData?['username'] ?? _emailController.text.split('@')[0],
         userData?['avatarUrl'] ?? 'assets/avatar_1.png',
       );
-      print('AuthState after login: ${Provider.of<AuthState>(context, listen: false).username}, ${Provider.of<AuthState>(context, listen: false).avatarUrl}');
+      print('AuthState after email login: ${Provider.of<AuthState>(context, listen: false).username}, ${Provider.of<AuthState>(context, listen: false).avatarUrl}');
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => LauncherScreen()),
       );
     } catch (e) {
       _showErrorDialog('Login Error', e.toString());
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void signInWithGoogle(BuildContext context) async {
+    setState(() => _isLoading = true);
+    final authService = AuthService();
+    try {
+      final userCredential = await authService.signInWithGoogle();
+      if (userCredential != null) {
+        final user = userCredential.user!;
+        Map<String, dynamic>? userData = await authService.getUserData(user.uid);
+        Provider.of<AuthState>(context, listen: false).setUser(
+          user.uid,
+          user.email ?? 'no-email@example.com',
+          userData?['username'] ?? user.email?.split('@')[0] ?? 'Anonymous',
+          userData?['avatarUrl'] ?? 'assets/avatar_1.png',
+        );
+        print('AuthState after Google login: ${Provider.of<AuthState>(context, listen: false).username}, ${Provider.of<AuthState>(context, listen: false).avatarUrl}');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LauncherScreen()),
+        );
+      } else {
+        _showErrorDialog('Google Sign-In Error', 'Google Sign-In was canceled.');
+      }
+    } catch (e) {
+      _showErrorDialog('Google Sign-In Error', e.toString());
     } finally {
       setState(() => _isLoading = false);
     }
@@ -105,10 +134,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Set Scaffold background to black
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Image at the top
           Positioned(
             top: 0,
             left: 0,
@@ -119,12 +147,11 @@ class _LoginScreenState extends State<LoginScreen> {
               fit: BoxFit.cover,
             ),
           ),
-          // Black Container covering the whole screen from bottom
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            top: 220, // Match the original top margin to align with image
+            top: 220,
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.black,
@@ -219,11 +246,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         SocialButton(
                           iconPath: 'assets/g_logo.svg',
                           label: 'Google',
-                        ),
-                        SizedBox(width: 20),
-                        SocialButton(
-                          iconPath: 'assets/f_logo.png',
-                          label: 'Guest',
+                          onTap: () {
+                            print('Google button tapped in LoginScreen, _isLoading: $_isLoading');
+                            if (!_isLoading) signInWithGoogle(context);
+                          },
                         ),
                       ],
                     ),
@@ -241,7 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
-                    SizedBox(height: 20), // Extra padding at the bottom
+                    SizedBox(height: 20),
                   ],
                 ),
               ),

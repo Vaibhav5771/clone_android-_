@@ -1,5 +1,6 @@
 import 'package:clone_android/services/chat_services.dart';
 import 'package:clone_android/services/file_state.dart';
+import 'package:clone_android/services/map_state.dart'; // Import MapState
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -20,18 +21,29 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthState()),
         ChangeNotifierProvider(create: (_) => ChatState()),
         ChangeNotifierProvider(create: (_) => FileAttachmentProvider()),
+        ChangeNotifierProvider(create: (_) => MapState()), // Add MapState provider
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: AuthGate(),
+      theme: ThemeData(
+        primarySwatch: Colors.blue, // Sets material blue shades
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: Colors.blue,
+        ).copyWith(
+          secondary: Colors.blueAccent, // Use blueAccent as secondary color
+        ),
+      ),
+      home: const AuthGate(),
     );
   }
 }

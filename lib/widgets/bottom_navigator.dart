@@ -31,11 +31,6 @@ class BottomNavigationBarWidget extends StatelessWidget {
           label: 'Map',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.search_outlined),
-          activeIcon: Icon(Icons.search),
-          label: 'Search',
-        ),
-        BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
           activeIcon: Icon(Icons.person),
           label: 'Profile',

@@ -22,16 +22,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
-  String _selectedAvatar = 'assets/avatar_1.png'; // Default avatar
+  String _selectedAvatar = 'assets/avatar_5.jpg'; // Default avatar
 
   // List of available avatars
   final List<String> _avatarOptions = [
-    'assets/avatar_1.png',
-    'assets/avatar_2.png',
-    'assets/avatar_3.png',
-    'assets/avatar_4.png',
-    'assets/avatar_5.png',
-    'assets/avatar_6.png',
+    'assets/avatar_1.jpg',
+    'assets/avatar_2.jpg',
+    'assets/avatar_3.jpg',
+    'assets/avatar_4.jpg',
+    'assets/avatar_5.jpg',
+    'assets/avatar_6.jpg',
   ];
 
   bool _isLoading = false;
@@ -335,11 +335,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         SocialButton(
                           iconPath: 'assets/g_logo.svg',
                           label: 'Google',
-                        ),
-                        SizedBox(width: 20),
-                        SocialButton(
-                          iconPath: 'assets/f_logo.png',
-                          label: 'Guest',
                         ),
                       ],
                     ),
